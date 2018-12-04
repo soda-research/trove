@@ -44,7 +44,10 @@ class MariaDBApp(galera_service.GaleraApp):
     @property
     def mysql_service(self):
         result = super(MariaDBApp, self).mysql_service
-        if result['type'] == 'sysvinit':
+        if operating_system.exists('/usr/bin/galera_new_cluster'):
+            result['cmd_bootstrap_galera_cluster'] = (
+                "sudo /usr/bin/galera_new_cluster")
+        elif result['type'] == 'sysvinit':
             result['cmd_bootstrap_galera_cluster'] = (
                 "sudo service %s bootstrap"
                 % result['service'])
