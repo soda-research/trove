@@ -559,6 +559,15 @@ class DBaaSClusterAttachConfiguration(DBaaSAPINotification):
     def required_start_traits(self):
         return ['cluster_id', 'configuration_id']
 
+class DBaaSClusterResizeInstances(DBaaSAPINotification):
+
+    @abc.abstractmethod
+    def event_type(self):
+        return 'cluster_resize_instances'
+
+    @abc.abstractmethod
+    def required_start_traits(self):
+        return ['cluster_id', 'flavor']
 
 class DBaaSClusterDetachConfiguration(DBaaSAPINotification):
 
@@ -626,6 +635,17 @@ class DBaaSClusterResetStatus(DBaaSAPINotification):
     @abc.abstractmethod
     def required_start_traits(self):
         return ['cluster_id']
+
+
+class DBaaSClusterResizeVolume(DBaaSAPINotification):
+
+    @abc.abstractmethod
+    def event_type(self):
+        return 'cluster_resize_volume'
+
+    @abc.abstractmethod
+    def required_start_traits(self):
+        return ['cluster_id', 'volume']
 
 
 class DBaaSClusterAddShard(DBaaSAPINotification):

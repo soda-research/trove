@@ -30,12 +30,16 @@ from trove.common.notification import (
     DBaaSClusterGrow,
     DBaaSClusterShrink,
     DBaaSClusterResetStatus,
-    DBaaSClusterRestart)
+    DBaaSClusterRestart,
+    DBaaSClusterResizeInstances,
+    DBaaSClusterResizeVolume)
 from trove.common.notification import DBaaSClusterUpgrade
 from trove.common.notification import DBaaSInstanceAttachConfiguration
 from trove.common.notification import DBaaSInstanceDetachConfiguration
 from trove.common.notification import EndNotification
 from trove.common.notification import StartNotification
+from trove.common.notification import DBaaSInstanceResizeVolume
+from trove.common.notification import DBaaSInstanceResizeInstance
 from trove.common import remote
 from trove.common import server_group as srv_grp
 from trove.common.strategies.cluster import strategy
@@ -367,7 +371,18 @@ class Cluster(object):
                                                                    request=req)
             with StartNotification(context, cluster_id=self.id):
                 return self.configuration_detach()
-
+        elif action == 'resize-volume':
+            context.notification = DBaaSClusterResizeVolume(context,
+                                                            request=req)
+            with StartNotification(context, cluster_id=self.id,
+                                            volume= param['volume']):
+                return self.rolling_resize_volumes(param['volume'])
+        elif action == 'resize-instances':
+            context.notification = DBaaSClusterResizeInstances(context,
+                                                               request=req)
+            with StartNotification(context, cluster_id=self.id,
+                                            flavor= param['flavor']):
+            	return self.rolling_resize_flavour(param['flavor'])
         else:
             raise exception.BadRequest(_("Action %s not supported") % action)
 
@@ -382,14 +397,41 @@ class Cluster(object):
         self.db_info.update(task_status=ClusterTasks.RESTARTING_CLUSTER)
         try:
             cluster_id = self.db_info.id
-            task_api.load(self.context, self.ds_version.manager
-                          ).restart_cluster(cluster_id)
+            manager = task_api.load(self.context, self.ds_version.manager)
+            manager.restart_cluster(cluster_id)
         except Exception:
             self.db_info.update(task_status=ClusterTasks.NONE)
             raise
 
         return self.__class__(self.context, self.db_info,
                               self.ds, self.ds_version)
+
+    def rolling_resize_volumes(self, new_size):
+        """Resize volume on each cluster node"""
+        self.validate_cluster_available()
+        self.db_info.update(task_status=ClusterTasks.RESIZE_VOLUMES)
+        try:
+     	    cluster_id = self.db_info.id
+            manager = task_api.load(self.context, self.ds_version.manager)
+            manager.cluster_resize_volume(cluster_id, new_size)
+        except Exception:
+            self.db_info.update(task_status=ClusterTasks.NONE)
+            raise
+
+
+    def rolling_resize_flavour(self, flavorRef):
+        """Resize flavors on each cluster node"""
+        self.validate_cluster_available()
+        self.update_db(task_status=ClusterTasks.RESIZE_FLAVOR)
+        try:
+            cluster_id = self.db_info.id
+            new_flavor_id = utils.get_id_from_href(flavorRef)
+
+            task_api.load(self.context, self.ds_version.manager
+                          ).cluster_resize_instances(cluster_id, new_flavor_id)
+        except Exception:
+            self.update_db(task_status=ClusterTasks.NONE)
+            raise
 
     def rolling_upgrade(self, datastore_version):
         """Upgrades a cluster to a new datastore version."""

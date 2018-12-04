@@ -444,6 +444,17 @@ class Manager(periodic_task.PeriodicTasks):
         cluster_tasks = models.load_cluster_tasks(context, cluster_id)
         cluster_tasks.upgrade_cluster(context, cluster_id, datastore_version)
 
+
+    def cluster_resize_instances(self, context, cluster_id, new_flavor_id):
+        cluster_tasks = models.load_cluster_tasks(context, cluster_id)
+        cluster_tasks.cluster_resize_instances(context, cluster_id, new_flavor_id)
+
+    def cluster_resize_volume(self, context, cluster_id, volume):
+        cluster_tasks = models.load_cluster_tasks(context, cluster_id)
+        cluster_tasks.cluster_resize_volume(context, cluster_id, volume)
+
+
+
     def delete_cluster(self, context, cluster_id):
         with EndNotification(context):
             cluster_tasks = models.load_cluster_tasks(context, cluster_id)

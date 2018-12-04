@@ -117,7 +117,9 @@ class InstanceTasks(object):
     BUILDING_ERROR_TIMEOUT_GA = InstanceTask(0x5b, 'ERROR',
                                              'Build error: '
                                              'guestagent timeout.',
-                                             is_error=True)
-
+                                             is_error=True),
+    RESIZING_ERROR = InstanceTask(0x5c, 'RESIZING',
+                                        'Instance Resizing Error.',
+                                        is_error=True)
 # Dissuade further additions at run-time.
 InstanceTask.__init__ = None

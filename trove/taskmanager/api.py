@@ -269,6 +269,24 @@ class API(object):
         cctxt.cast(self.context, "upgrade_cluster", cluster_id=cluster_id,
                    datastore_version_id=datastore_version_id)
 
+    def cluster_resize_instances(self, cluster_id, new_flavor_id):
+        LOG.debug("Making async call to resize flavor for cluster %s ",
+                  cluster_id)
+        version = self.API_BASE_VERSION
+
+        self._cast("cluster_resize_instances", version=version,
+                   cluster_id=cluster_id,
+                   new_flavor_id=new_flavor_id)
+
+    def cluster_resize_volume(self, cluster_id, volume):
+        LOG.debug("Making async call to resize volume for cluster %s ",
+                  cluster_id)
+        version = self.API_BASE_VERSION
+
+        self._cast("cluster_resize_volume", version=version,
+                   cluster_id=cluster_id,
+                   volume=volume)
+
     def reapply_module(self, module_id, md5, include_clustered,
                        batch_size, batch_delay, force):
         LOG.debug("Making async call to reapply module %s", module_id)

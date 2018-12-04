@@ -848,7 +848,7 @@ class Instance(BuiltInstance):
             remote_ds_ver.image)
         if local_image.checksum != remote_image.checksum:
             raise exception.TroveError(
-                "Images for Datastore %(ds)s do not match "
+                "Images for Datastore %(ds)s do not match"
                 "between regions %(local)s and %(remote)s." %
                 {'ds': datastore.name, 'local': CONF.os_region_name,
                  'remote': region_name})
@@ -1129,9 +1129,6 @@ class Instance(BuiltInstance):
         LOG.info("Resizing instance %(instance_id)s flavor to "
                  "%(flavor_id)s.",
                  {'instance_id': self.id, 'flavor_id': new_flavor_id})
-        if self.db_info.cluster_id is not None:
-            raise exception.ClusterInstanceOperationNotSupported()
-
         # Validate that the old and new flavor IDs are not the same, new flavor
         # can be found and has ephemeral/volume support if required by the
         # current flavor.
@@ -1163,8 +1160,6 @@ class Instance(BuiltInstance):
         def _resize_resources():
             self.validate_can_perform_action()
             LOG.info("Resizing volume of instance %s.", self.id)
-            if self.db_info.cluster_id is not None:
-                raise exception.ClusterInstanceOperationNotSupported()
             old_size = self.volume_size
             if int(new_size) <= old_size:
                 raise exception.BadRequest(_("The new volume 'size' must be "

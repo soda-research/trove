@@ -48,6 +48,8 @@ from trove.common.instance import ServiceStatuses
 from trove.common.notification import (
     DBaaSInstanceRestart,
     DBaaSInstanceUpgrade,
+    DBaaSInstanceResizeInstance,
+    DBaaSInstanceResizeVolume,
     EndNotification,
     StartNotification,
     TroveInstanceCreate,
@@ -406,6 +408,97 @@ class ClusterTasks(Cluster):
 
         LOG.debug("End upgrade_cluster for id: %s.", cluster_id)
 
+    def rolling_cluster_resize_instances(self, context, cluster_id, flavor_id):
+        LOG.debug("Begin rolling cluster flavor resize for id: %s.",
+                  cluster_id)
+
+        def _resize_cluster_instance(instance, old_flavor, new_flavor):
+            LOG.debug("Reisize instance with id: %s.", instance.id)
+            context.notification = (
+                DBaaSInstanceResizeInstance(context, **request_info))
+            with StartNotification(
+                    context, instance_id=instance.id,
+                    new_flavor_id=flavor_id):
+                with EndNotification(context):
+                    instance.update_db(
+                        flavor_id=flavor_id,
+                        task_status=InstanceTasks.RESIZING)
+                    instance.resize_flavor(old_flavor, new_flavor)
+
+        timeout = Timeout(CONF.cluster_usage_timeout)
+        cluster_notification = context.notification
+        request_info = cluster_notification.serialize(context)
+        client = remote.create_nova_client(context)
+        flavor = client.flavors.get(flavor_id)
+        
+        try:
+            for db_inst in DBInstance.find_all(cluster_id=cluster_id,
+                                               deleted=False).all():
+                instance = BuiltInstanceTasks.load(context, db_inst.id)
+                old_flavor = client.flavors.get(instance.flavor_id)   
+                _resize_cluster_instance(instance, old_flavor.to_dict(),
+                                         flavor.to_dict())
+            self.reset_task()
+        except Timeout as t:
+            if t is not timeout:
+                raise  # not my timeout
+            LOG.exception("Timeout for resize cluster.")
+            self.update_statuses_on_failure(
+                cluster_id, status=InstanceTasks.RESIZING_ERROR)
+        except Exception:
+            LOG.exception("Error resize cluster %s.", cluster_id)
+            self.update_statuses_on_failure(
+                cluster_id, status=InstanceTasks.RESIZING_ERROR)
+        finally:
+            context.notification = cluster_notification
+            timeout.cancel()
+
+        LOG.debug("End resize_cluster for id: %s.", cluster_id)
+
+    def rolling_cluster_resize_volume(self, context, cluster_id, volume):
+        LOG.debug("Begin rolling cluster volume resize for id: %s.",
+                  cluster_id)
+
+        def _resize_cluster_volume(instance, volume):
+            LOG.debug("Reisize instance with id: %s.", instance.id)
+            context.notification = (
+                DBaaSInstanceResizeVolume(context, **request_info))
+            with StartNotification(
+                    context, instance_id=instance.id,
+                    new_size=volume):
+                with EndNotification(context):
+                    instance.update_db(
+                        volume=volume,
+                        task_status=InstanceTasks.RESIZING)
+                    instance.resize_volume(volume)
+
+        timeout = Timeout(CONF.cluster_usage_timeout)
+        cluster_notification = context.notification
+        request_info = cluster_notification.serialize(context)
+        
+        try:
+            for db_inst in DBInstance.find_all(cluster_id=cluster_id,
+                                               deleted=False).all():
+                instance = BuiltInstanceTasks.load(context, db_inst.id)
+                _resize_cluster_volume(instance, volume)
+            self.reset_task()
+        except Timeout as t:
+            if t is not timeout:
+                raise  # not my timeout
+            LOG.exception("Timeout for resize cluster.")
+            self.update_statuses_on_failure(
+                cluster_id, status=InstanceTasks.RESIZING_ERROR)
+        except Exception:
+            LOG.exception("Error resize cluster %s.", cluster_id)
+            self.update_statuses_on_failure(
+                cluster_id, status=InstanceTasks.RESIZING_ERROR)
+        finally:
+            context.notification = cluster_notification
+            timeout.cancel()
+
+        LOG.debug("End resize_cluster for id: %s.", cluster_id)
+
+
 
 class FreshInstanceTasks(FreshInstance, NotifyMixin, ConfigurationMixin):
 
@@ -719,7 +812,7 @@ class FreshInstanceTasks(FreshInstance, NotifyMixin, ConfigurationMixin):
             except AttributeError:
                 pass
             server_message = "\nServer error: %s" % server_fault_message
-            raise TroveError(_("Server not active, status: %(status)s "
+            raise TroveError(_("Server not active, status: %(status)s"
                                "%(srv_msg)s") %
                              {'status': server_status,
                               'srv_msg': server_message})
@@ -1106,8 +1199,8 @@ class BuiltInstanceTasks(BuiltInstance, NotifyMixin, ConfigurationMixin):
     def resize_flavor(self, old_flavor, new_flavor):
         LOG.info("Resizing instance %(instance_id)s from flavor "
                  "%(old_flavor)s to %(new_flavor)s.",
-                 {'instance_id': self.id, 'old_flavor': old_flavor['id'],
-                  'new_flavor': new_flavor['id']})
+                 {'instance_id': self.id, 'old_flavor': old_flavor,
+                  'new_flavor': new_flavor})
         action = ResizeAction(self, old_flavor, new_flavor)
         action.execute()
         LOG.info("Resized instance %s successfully.", self.id)

@@ -75,6 +75,11 @@ class ClusterTasks(object):
         0x08, 'RESTARTING_CLUSTER', 'Restarting the cluster.')
     UPDATING_CLUSTER = ClusterTask(
         0x09, 'UPDATING_CLUSTER', 'Updating cluster configuration.')
+    RESIZE_VOLUMES = ClusterTask(
+        0x0A, 'RESIZE_VOLUMES', 'Resizing cluster volumes.')
+    RESIZE_FLAVOR = ClusterTask(
+        0x0B, 'RESIZE_FLAVOR', 'Resize cluster flavors')
+
 
 
 # Dissuade further additions at run-time.
