@@ -37,5 +37,11 @@ cat >/etc/mysql/my.cnf <<_EOF_
 _EOF_
 
 rm /etc/init.d/mysql
+
+cat >/etc/systemd/system/mariadb.service.d/start-up-timeout.conf <<_EOF_
+[Service]
+TimeoutStartSec=0
+_EOF_
+
 systemctl daemon-reload
 systemctl enable mariadb
