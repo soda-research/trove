@@ -1,0 +1,13 @@
+#!/bin/bash
+
+set -e
+set -o xtrace
+
+TMP_HOOKS_DIR="/tmp/in_target.d"
+
+UPPER_CONSTRAINTS=
+if [ -f ${TMP_HOOKS_DIR}/upper-constraints.txt ]; then
+    UPPER_CONSTRAINTS=" -c ${TMP_HOOKS_DIR}/upper-constraints.txt"
+fi
+
+pip install -q --upgrade monasca-agent ${UPPER_CONSTRAINTS}
