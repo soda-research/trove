@@ -430,12 +430,12 @@ class ClusterTasks(Cluster):
         request_info = cluster_notification.serialize(context)
         client = remote.create_nova_client(context)
         flavor = client.flavors.get(flavor_id)
-        
+
         try:
             for db_inst in DBInstance.find_all(cluster_id=cluster_id,
                                                deleted=False).all():
                 instance = BuiltInstanceTasks.load(context, db_inst.id)
-                old_flavor = client.flavors.get(instance.flavor_id)   
+                old_flavor = client.flavors.get(instance.flavor_id)
                 _resize_cluster_instance(instance, old_flavor.to_dict(),
                                          flavor.to_dict())
             self.reset_task()
@@ -460,6 +460,7 @@ class ClusterTasks(Cluster):
                   cluster_id)
 
         def _resize_cluster_volume(instance, volume):
+            import time
             LOG.debug("Reisize instance with id: %s.", instance.id)
             context.notification = (
                 DBaaSInstanceResizeVolume(context, **request_info))
@@ -475,12 +476,14 @@ class ClusterTasks(Cluster):
         timeout = Timeout(CONF.cluster_usage_timeout)
         cluster_notification = context.notification
         request_info = cluster_notification.serialize(context)
-        
+
         try:
             for db_inst in DBInstance.find_all(cluster_id=cluster_id,
                                                deleted=False).all():
                 instance = BuiltInstanceTasks.load(context, db_inst.id)
                 _resize_cluster_volume(instance, volume)
+                LOG.debug("Waiting after instance resize...")
+                time.sleep(60)
             self.reset_task()
         except Timeout as t:
             if t is not timeout:
@@ -1827,15 +1830,22 @@ class ResizeVolumeAction(object):
             raise
 
     def _resize_active_volume(self):
+        import time
         LOG.debug("Begin _resize_active_volume for id: %(id)s", {
                   'id': self.instance.id})
         self._stop_db()
+        LOG.debug("Waiting after instance stop...")
+        time.sleep(30)
         self._unmount_volume(recover_func=self._recover_restart)
+        LOG.debug("Waiting after volume unmount...")
+        time.sleep(30)
         self._detach_volume(recover_func=self._recover_mount_restart)
         self._extend(recover_func=self._recover_full)
         self._verify_extend()
         # if anything fails after this point, recovery is futile
         self._attach_volume(recover_func=self._fail)
+        LOG.debug("Waiting after volume attach...")
+        time.sleep(30)
         self._resize_fs(recover_func=self._fail)
         self._mount_volume(recover_func=self._fail)
         self.instance.restart()
